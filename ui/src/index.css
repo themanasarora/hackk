@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Security Dashboard Design System - Dark Theme */
+
+@layer base {
+  :root {
+    /* Light mode fallback */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 195 100% 50%;
+    --primary-foreground: 220 27% 8%;
+    --secondary: 220 27% 12%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 220 27% 15%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 195 100% 50%;
+    --accent-foreground: 220 27% 8%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 27% 18%;
+    --input: 220 27% 18%;
+    --ring: 195 100% 50%;
+    --radius: 0.75rem;
+    
+    /* Security Dashboard Specific Colors */
+    --dashboard-bg: 220 27% 8%;
+    --sidebar-bg: 220 27% 10%;
+    --card-bg: 220 27% 12%;
+    --nav-hover: 220 27% 15%;
+    
+    /* Risk Colors */
+    --risk-high: 0 84% 60%;
+    --risk-medium: 35 91% 65%;
+    --risk-low: 142 71% 45%;
+    
+    /* Status Colors */
+    --status-online: 142 71% 45%;
+    --status-warning: 35 91% 65%;
+    --status-critical: 0 84% 60%;
+    
+    /* Gradient Effects */
+    --gradient-primary: linear-gradient(135deg, hsl(195 100% 50%), hsl(195 100% 40%));
+    --gradient-card: linear-gradient(135deg, hsl(220 27% 12%), hsl(220 27% 14%));
+    --glow-primary: 0 0 20px hsl(195 100% 50% / 0.3);
+    --glow-danger: 0 0 20px hsl(0 84% 60% / 0.3);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 220 27% 8%;
+    --foreground: 0 0% 98%;
+    --card: 220 27% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 220 27% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 195 100% 50%;
+    --primary-foreground: 220 27% 8%;
+    --secondary: 220 27% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 220 27% 15%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 195 100% 50%;
+    --accent-foreground: 220 27% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 27% 18%;
+    --input: 220 27% 18%;
+    --ring: 195 100% 50%;
+    --sidebar-background: 220 27% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 195 100% 50%;
+    --sidebar-primary-foreground: 220 27% 8%;
+    --sidebar-accent: 220 27% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 220 27% 18%;
+    --sidebar-ring: 195 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
