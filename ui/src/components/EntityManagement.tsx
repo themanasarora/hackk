@@ -11,12 +11,10 @@ import {
   Users, 
   Monitor, 
   Server,
-  AlertTriangle,
   Activity,
   Clock,
   Shield,
   Eye,
-  TrendingUp,
   MapPin,
   Building
 } from "lucide-react";
@@ -28,7 +26,7 @@ interface Entity {
   id: string;
   name: string;
   type: "user" | "device" | "server";
-  score: number;
+  riskScore: number; // Changed from 'score' to match backend
   department: string;
   location: string;
   role: string;
@@ -38,48 +36,37 @@ interface Entity {
   status: "online" | "offline" | "suspicious";
 }
 
-
-
-
-
-
-
-
 export function EntityManagement() {
   const [entities, setEntities] = useState<Entity[]>([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState<string | null>(null);
-
-
-
-
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedRiskLevel, setSelectedRiskLevel] = useState<string>("all");
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false); // Control dialog visibility
 
-const filteredEntities = entities.filter((entity) => {
-  const matchesSearch =
-    !searchTerm ||
-    (entity.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     entity.id?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredEntities = entities.filter((entity) => {
+    const matchesSearch =
+      !searchTerm ||
+      (entity.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entity.id?.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const matchesType =
-    selectedType === "all" || entity.type === selectedType;
+    const matchesType =
+      selectedType === "all" || entity.type === selectedType;
 
-  const matchesDepartment =
-    selectedDepartment === "all" || entity.department === selectedDepartment;
+    const matchesDepartment =
+      selectedDepartment === "all" || entity.department === selectedDepartment;
 
-  const matchesRiskLevel =
-    selectedRiskLevel === "all" ||
-    (selectedRiskLevel === "high" && entity.score >= 40) ||
-    (selectedRiskLevel === "medium" && entity.score >= 25 && entity.score < 40) ||
-    (selectedRiskLevel === "low" && entity.score < 25);
+    const matchesRiskLevel =
+      selectedRiskLevel === "all" ||
+      (selectedRiskLevel === "high" && entity.riskScore >= 40) ||
+      (selectedRiskLevel === "medium" && entity.riskScore >= 25 && entity.riskScore < 40) ||
+      (selectedRiskLevel === "low" && entity.riskScore < 25);
 
-  return matchesSearch && matchesType && matchesDepartment && matchesRiskLevel;
-});
-
+    return matchesSearch && matchesType && matchesDepartment && matchesRiskLevel;
+  });
 
   const getRiskBadgeVariant = (score: number) => {
     if (score >= 40) return "destructive";
@@ -105,39 +92,93 @@ const filteredEntities = entities.filter((entity) => {
     }
   };
 
+  // Updated to use valid Tailwind classes
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "online": return "bg-status-online";
-      case "offline": return "bg-muted-foreground";
-      case "suspicious": return "bg-status-critical";
-      default: return "bg-muted-foreground";
+      case "online": return "bg-green-500";
+      case "offline": return "bg-gray-500";
+      case "suspicious": return "bg-yellow-500";
+      default: return "bg-gray-500";
     }
   };
 
+  // Format last active date
+  const formatLastActive = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+// Add this mapping function
+const mapEntity = (data: any): Entity => ({
+  id: String(data.id),
+  name: data.name || 'Unknown',
+  type: data.type || 'user',
+  riskScore: data.score || 0,  // Map 'score' to 'riskScore'
+  department: data.department || 'Unknown',
+  location: data.location || 'Unknown',
+  role: data.role || 'Unknown',
+  lastActive: data.lastActive || new Date().toISOString(),
+  rulesTriggered: data.rulesTriggered || [],
+  trend: data.trend || 'stable',
+  status: data.status || 'online'
+});
+
+// Update the useEffect to use the mapper
 useEffect(() => {
   console.log("Fetching entities...");
-
-  axios
-    .get("http://127.0.0.1:8000/entities")
+  axios.get("http://127.0.0.1:8000/entities")
     .then((res) => {
-      console.log("Response received:", res.data);
+      let rawData = res.data;
+      let entitiesData: Entity[] = [];
+      
+      if (Array.isArray(rawData)) {
+        entitiesData = rawData.map(mapEntity);
+      } else if (Array.isArray(rawData?.entities)) {
+        entitiesData = rawData.entities.map(mapEntity);
+      } else if (typeof rawData === 'object' && rawData !== null) {
+        entitiesData = [mapEntity(rawData)];
+      } else {
+        console.error("Unexpected response format:", rawData);
+        throw new Error("Unexpected response format from server");
+      }
 
-      // Defensive: If data is not array, fallback to empty array
-      const rawEntities = res.data.entities || [];
-
-
-
-     setEntities(res.data.entities);
-
+      console.log("Mapped entities data:", entitiesData);
+      setEntities(entitiesData);
       setLoading(false);
     })
     .catch((err) => {
       console.error("Error fetching entities:", err);
-      setError("Failed to load entities");
+      setError("Failed to load entities. Please try again later.");
       setLoading(false);
+      setEntities([]);
     });
 }, []);
 
+  const handleEntityClick = (entity: Entity) => {
+    setSelectedEntity(entity);
+    setIsDialogOpen(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p>Loading entities...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64 text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -229,8 +270,6 @@ useEffect(() => {
       {/* Entity List */}
       <div className="grid gap-4">
         {filteredEntities.map((entity) => {
-
-
           const Icon = getEntityIcon(entity.type);
           return (
             <Card key={entity.id} className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/70 transition-colors">
@@ -241,7 +280,7 @@ useEffect(() => {
                       <div className="p-2 rounded-lg bg-primary/10">
                         <Icon className="h-5 w-5 text-primary" />
                       </div>
-                      <div className={`w-3 h-3 rounded-full ${getStatusColor(entity.name)}`} />
+                      <div className={`w-3 h-3 rounded-full ${getStatusColor(entity.status)}`} />
                     </div>
                     
                     <div className="space-y-1">
@@ -254,15 +293,15 @@ useEffect(() => {
                       <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                         <div className="flex items-center space-x-1">
                           <Building className="h-3 w-3" />
-                          <span>{entity.name}</span>
+                          <span>{entity.department}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <MapPin className="h-3 w-3" />
-                          <span>{entity.name}</span>
+                          <span>{entity.location}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <Clock className="h-3 w-3" />
-                          <span>{entity.name}</span>
+                          <span>{formatLastActive(entity.lastActive)}</span>
                         </div>
                       </div>
                     </div>
@@ -271,22 +310,22 @@ useEffect(() => {
                   <div className="flex items-center space-x-4">
                     <div className="text-right space-y-1">
                       <div className="flex items-center space-x-2">
-                        <Badge variant={getRiskBadgeVariant(entity.score)}>
-                          Risk: {entity.score}
+                        <Badge variant={getRiskBadgeVariant(entity.riskScore)}>
+                          Risk: {entity.riskScore}
                         </Badge>
                         <span className="text-sm">{getTrendIcon(entity.trend)}</span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {entity.name} rules triggered
+                        {entity.rulesTriggered.length} rules triggered
                       </div>
                     </div>
 
-                    <Dialog>
+                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                       <DialogTrigger asChild>
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => setSelectedEntity(entity)}
+                          onClick={() => handleEntityClick(entity)}
                         >
                           <Eye className="h-4 w-4 mr-2" />
                           Details
@@ -315,24 +354,24 @@ useEffect(() => {
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Type:</span>
-                                    <Badge variant="outline">{selectedEntity.name}</Badge>
+                                    <Badge variant="outline">{selectedEntity.type}</Badge>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Department:</span>
-                                    <span className="font-medium">{selectedEntity.name}</span>
+                                    <span className="font-medium">{selectedEntity.department}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Location:</span>
-                                    <span className="font-medium">{selectedEntity.name}</span>
+                                    <span className="font-medium">{selectedEntity.location}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Role:</span>
-                                    <span className="font-medium">{selectedEntity.name}</span>
+                                    <span className="font-medium">{selectedEntity.role}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status:</span>
                                     <div className="flex items-center space-x-2">
-                                      <div className={`w-2 h-2 rounded-full ${getStatusColor(selectedEntity.name)}`} />
+                                      <div className={`w-2 h-2 rounded-full ${getStatusColor(selectedEntity.status)}`} />
                                       <span className="font-medium capitalize">{selectedEntity.status}</span>
                                     </div>
                                   </div>
@@ -350,17 +389,17 @@ useEffect(() => {
                                   <div className="space-y-2">
                                     <div className="flex justify-between">
                                       <span className="text-muted-foreground">Current Risk Score:</span>
-                                      <Badge variant={getRiskBadgeVariant(selectedEntity.score)} className="text-lg px-3 py-1">
-                                        {selectedEntity.score}
+                                      <Badge variant={getRiskBadgeVariant(selectedEntity.riskScore)} className="text-lg px-3 py-1">
+                                        {selectedEntity.riskScore}
                                       </Badge>
                                     </div>
-                                    <Progress value={selectedEntity.score} className="h-3" />
+                                    <Progress value={selectedEntity.riskScore} className="h-3" />
                                   </div>
                                   
                                   <div className="space-y-2">
                                     <span className="text-sm font-medium">Triggered Rules:</span>
-                                    {/* <div className="space-y-1">
-                                      {selectedEntity.name.length > 0 ? (
+                                    <div className="space-y-1">
+                                      {selectedEntity.rulesTriggered.length > 0 ? (
                                         selectedEntity.rulesTriggered.map((rule, index) => (
                                           <Badge key={index} variant="destructive" className="mr-2 mb-1">
                                             {rule}
@@ -369,14 +408,14 @@ useEffect(() => {
                                       ) : (
                                         <span className="text-muted-foreground text-sm">No rules triggered</span>
                                       )}
-                                    </div> */}
+                                    </div>
                                   </div>
                                   
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Risk Trend:</span>
                                     <div className="flex items-center space-x-2">
-                                      <span>{getTrendIcon(selectedEntity.name)}</span>
-                                      <span className="font-medium capitalize">{selectedEntity.name}</span>
+                                      <span>{getTrendIcon(selectedEntity.trend)}</span>
+                                      <span className="font-medium capitalize">{selectedEntity.trend}</span>
                                     </div>
                                   </div>
                                 </CardContent>
@@ -409,21 +448,21 @@ useEffect(() => {
                               <CardContent>
                                 <div className="space-y-3">
                                   <div className="flex items-center space-x-3 p-3 border border-border rounded-lg">
-                                    <div className="w-3 h-3 bg-status-critical rounded-full" />
+                                    <div className="w-3 h-3 bg-red-500 rounded-full" />
                                     <div className="flex-1">
                                       <p className="text-sm font-medium">Suspicious login attempt detected</p>
                                       <p className="text-xs text-muted-foreground">2 minutes ago</p>
                                     </div>
                                   </div>
                                   <div className="flex items-center space-x-3 p-3 border border-border rounded-lg">
-                                    <div className="w-3 h-3 bg-status-warning rounded-full" />
+                                    <div className="w-3 h-3 bg-yellow-500 rounded-full" />
                                     <div className="flex-1">
                                       <p className="text-sm font-medium">Accessed confidential files</p>
                                       <p className="text-xs text-muted-foreground">15 minutes ago</p>
                                     </div>
                                   </div>
                                   <div className="flex items-center space-x-3 p-3 border border-border rounded-lg">
-                                    <div className="w-3 h-3 bg-status-online rounded-full" />
+                                    <div className="w-3 h-3 bg-green-500 rounded-full" />
                                     <div className="flex-1">
                                       <p className="text-sm font-medium">Normal system access</p>
                                       <p className="text-xs text-muted-foreground">1 hour ago</p>
@@ -444,7 +483,7 @@ useEffect(() => {
         })}
       </div>
 
-      {filteredEntities.length === 0 && (
+      {filteredEntities.length === 0 && !loading && (
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
           <CardContent className="p-12 text-center">
             <div className="space-y-4">
