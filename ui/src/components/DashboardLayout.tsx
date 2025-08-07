@@ -55,16 +55,13 @@ const navigationItems = [
     href: "alerts",
     active: false
   },
-  {
-    name: "AI Insights",
-    icon: Brain,
-    href: "insights",
-    active: false
-  }
+ 
 ];
 
 export function DashboardLayout({ children, activeTab, onTabChange }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [notificationOpen, setNotificationOpen] = useState(false);
 
   return (
     <div className="min-h-screen ">
@@ -131,23 +128,46 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Search */}
+              {/* Search
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search entities, alerts..."
                   className="w-64 pl-9 bg-background/50"
                 />
-              </div>
+              </div> */}
 
              
-              {/* Notifications */}
-              <Button variant="ghost" size="sm" className="relative">
-                <Bell className="w-6 h-6" />
-                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs font-semibold rounded-full px-1">
-                  3
-                </span>
-              </Button>
+              {/* Notifications with dropdown */}
+<div className="relative">
+  <Button
+    variant="ghost"
+    size="sm"
+    className="relative"
+    onClick={() => setNotificationOpen(!notificationOpen)}
+  >
+    <Bell className="w-6 h-6" />
+    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs font-semibold rounded-full px-1">
+      3
+    </span>
+  </Button>
+
+  {notificationOpen && (
+    <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg border rounded-lg z-50">
+      <ul className="text-sm text-gray-700 max-h-60 overflow-y-auto">
+        <li className="px-4 py-2 border-b hover:bg-gray-100">
+          New login from unknown device
+        </li>
+        <li className="px-4 py-2 border-b hover:bg-gray-100">
+          Scheduled maintenance at 2 AM
+        </li>
+        <li className="px-4 py-2 hover:bg-gray-100">
+          Backup completed successfully
+        </li>
+      </ul>
+    </div>
+  )}
+</div>
 
               {/* Status */}
               <div className="flex items-center gap-2">

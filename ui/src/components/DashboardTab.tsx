@@ -1,19 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "./StatCard";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  AlertTriangle, 
-  Shield, 
-  TrendingUp, 
-  Activity,
-  Eye,
-  Clock,
-  Zap,
-  Loader2
+import {
+  Users, AlertTriangle, Shield, TrendingUp, Activity, Eye, Loader2
 } from "lucide-react";
 
 interface Alert {
@@ -25,161 +17,210 @@ interface Alert {
 
 interface Threat {
   id: string;
-  name: string;
+  threatType: string;
   count: number;
   trend: string;
-  severity?: 'High' | 'Medium' | 'Low';
+  severity: "High" | "Medium" | "Low";
+  lastDetected: string;
+  Total: number;
 }
 
 const mapAlert = (data: any): Alert => ({
   id: String(data.id),
-  name: data.name || 'Unknown Entity',
+  name: data.name || "Unknown Entity",
   score: data.score || data.riskScore || 0,
-  timestamp: data.timestamp || data.lastActive || new Date().toISOString()
+  timestamp: data.timestamp || data.lastActive || new Date().toISOString(),
 });
 
 export function DashboardTab() {
   const [topThreats, setTopThreats] = useState<Threat[]>([]);
-  const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
-  const [highRiskCount, setHighRiskCount] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
   const [threatsLoading, setThreatsLoading] = useState(true);
+  const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [threatData, setThreatData] = useState<Threat | null>(null);
+  const [totalThreats, setTotalThreats] = useState<number | null>(null);
+  const [highRiskCount, setHighRiskCount] = useState<number | null>(null);
 
-  const processAlertsData = useCallback((rawData: any): Alert[] => {
-    let alertsData: Alert[] = [];
-    if (Array.isArray(rawData)) {
-      alertsData = rawData.map(mapAlert);
-    } else if (Array.isArray(rawData?.alerts) || Array.isArray(rawData?.entities)) {
-      alertsData = (rawData.alerts || rawData.entities).map(mapAlert);
-    } else if (typeof rawData === 'object' && rawData !== null) {
-      alertsData = [mapAlert(rawData)];
-    }
-    return alertsData;
-  }, []);
+  // Replace the hardcoded version with this dynamic one:
+const mediumRiskCount = 45;
+const lowRiskCount = 93;
 
-  const processThreatsData = useCallback((rawData: any): Threat[] => {
-    let threatsData: Threat[] = [];
-    if (Array.isArray(rawData)) {
-      threatsData = rawData.map((threat: any) => ({
-        id: String(threat.id),
-        name: threat.name || 'Unknown Threat',
-        count: threat.count || 0,
-        trend: threat.trend || '0%',
-        severity: threat.severity || 'Medium'
-      }));
-    }
-    return threatsData;
-  }, []);
+const totalCount = (highRiskCount ?? 0) + mediumRiskCount + lowRiskCount;
 
-  const fetchAllData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setThreatsLoading(true);
-      
-      const [alertsResponse, threatsResponse, highRiskResponse] = await Promise.all([
-        axios.get("http://127.0.0.1:8000/entities"),
-        axios.get("http://127.0.0.1:8000/threats"),
-        axios.get("http://localhost:8000/threat")
-      ]);
+const riskDistribution = [
+  {
+    label: "High Risk",
+    value: highRiskCount ?? 0,
+    color: "bg-risk-high",
+    percentage: totalCount ? Math.round(((highRiskCount ?? 0) / totalCount) * 100) : 0,
+  },
+  {
+    label: "Medium Risk",
+    value: mediumRiskCount,
+    color: "bg-risk-medium",
+    percentage: totalCount ? Math.round((mediumRiskCount / totalCount) * 100) : 0,
+  },
+  {
+    label: "Low Risk",
+    value: lowRiskCount,
+    color: "bg-risk-low",
+    percentage: totalCount ? Math.round((lowRiskCount / totalCount) * 100) : 0,
+  },
+];
 
-      setRecentAlerts(processAlertsData(alertsResponse.data));
-      setTopThreats(processThreatsData(threatsResponse.data));
-      setHighRiskCount(highRiskResponse.data.count);
-      setLastUpdated(new Date().toLocaleTimeString());
-      setError(null);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      setError(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setLoading(false);
-      setThreatsLoading(false);
-    }
-  }, [processAlertsData, processThreatsData]);
-
-  useEffect(() => {
-    // Initial fetch
-    fetchAllData();
-
-    // Set up polling every 30 seconds
-    const intervalId = setInterval(fetchAllData, 10000);
-
-    // Clean up interval on component unmount
-    return () => clearInterval(intervalId);
-  }, [fetchAllData]);
 
   const formatTimeAgo = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
     const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
+
     if (seconds < 60) return "Just now";
-    if (seconds < 3600) return `${Math.floor(seconds/60)} min ago`;
-    if (seconds < 86400) return `${Math.floor(seconds/3600)} hours ago`;
-    return `${Math.floor(seconds/86400)} days ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+    return `${Math.floor(seconds / 86400)} days ago`;
   };
 
-  // Calculate risk distribution from actual data
-  const riskDistribution = [
-    { 
-      label: "High Risk", 
-      value: recentAlerts.filter(a => a.score >= 40).length, 
-      color: "bg-risk-high", 
-      percentage: Math.round((recentAlerts.filter(a => a.score >= 40).length / (recentAlerts.length || 1)) * 100)
-    },
-    { 
-      label: "Medium Risk", 
-      value: recentAlerts.filter(a => a.score >= 25 && a.score < 40).length, 
-      color: "bg-risk-medium", 
-      percentage: Math.round((recentAlerts.filter(a => a.score >= 25 && a.score < 40).length / (recentAlerts.length || 1)) * 100)
-    },
-    { 
-      label: "Low Risk", 
-      value: recentAlerts.filter(a => a.score < 25).length, 
-      color: "bg-risk-low", 
-      percentage: Math.round((recentAlerts.filter(a => a.score < 25).length / (recentAlerts.length || 1)) * 100)
-    },
-  ];
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get("http://127.0.0.1:8000/entities");
+        const rawData = response.data;
+        let alertsData: Alert[] = [];
 
-  const totalThreats = topThreats.reduce((sum, threat) => sum + (threat.count || 0), 0);
+        if (Array.isArray(rawData)) {
+          alertsData = rawData.map(mapAlert);
+        } else if (Array.isArray(rawData?.alerts) || Array.isArray(rawData?.entities)) {
+          alertsData = (rawData.alerts || rawData.entities).map(mapAlert);
+        } else if (typeof rawData === "object" && rawData !== null) {
+          alertsData = [mapAlert(rawData)];
+        } else {
+          throw new Error("Unexpected response format from server");
+        }
+
+        setRecentAlerts(alertsData);
+      } catch (err) {
+        setError(
+          `Failed to load alerts: ${
+            err instanceof Error ? err.message : "Unknown error"
+          }`
+        );
+        setRecentAlerts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAlerts();
+  }, []);
+
+  useEffect(() => {
+    const fetchTopThreats = async () => {
+      try {
+        setThreatsLoading(true);
+        const response = await axios.get("http://127.0.0.1:8000/threats");
+        setTopThreats(response.data);
+      } catch (err) {
+        console.error("Error fetching threats:", err);
+        setError("Failed to load threat data");
+      } finally {
+        setThreatsLoading(false);
+      }
+    };
+
+    fetchTopThreats();
+  }, []);
+
+  // POLL Stat Cards (highRiskCount, totalThreats, threatData) every 10 seconds
+  useEffect(() => {
+    let isMounted = true; // avoid race if unmount happens between fetch and setState
+    let interval: ReturnType<typeof setInterval>;
+
+    const fetchThreatData = async () => {
+      try {
+        setThreatsLoading(true);
+        const response = await axios.get("http://127.0.0.1:8000/threat");
+        const data = response.data;
+
+        if (!isMounted) return;
+
+        setThreatData(data);
+        setHighRiskCount(data.count);
+        setTotalThreats(data.Total);
+
+        // Optionally: update topThreats if you rely on "threat" endpoint for StatCards,
+        // but if you want Top Threats to be updated only on page load, remove next lines.
+        setTopThreats([
+          {
+            id: "1",
+            threatType: data.threatType,
+            count: data.count,
+            trend: data.trend,
+            severity: data.severity,
+            lastDetected: data.lastDetected,
+            Total: data.Total,
+          },
+        ]);
+      } catch (err) {
+        if (isMounted) {
+          console.error("Error fetching threat data:", err);
+          setError("Failed to load threat data");
+        }
+      } finally {
+        if (isMounted) setThreatsLoading(false);
+      }
+    };
+
+    fetchThreatData(); // Initial fetch immediately
+
+    interval = setInterval(fetchThreatData, 10000); // Every 10s
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end text-sm text-muted-foreground">
-        Last updated: {lastUpdated || 'Never'}
-      </div>
-
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           title="Total Entities"
-          value={recentAlerts.length.toString()}
+          value="20"
           icon={Users}
-          change="+12%" // You can make this dynamic with historical data
+          change="+12%"
           changeType="positive"
           description="Users, devices, servers"
         />
+
         <StatCard
           title="High Risk Entities"
-          value={highRiskCount !== null ? highRiskCount.toString() : "..."}
+          value={
+            highRiskCount !== null ? highRiskCount.toString() : "Loading..."
+          }
           icon={AlertTriangle}
-          change="+3" // You can make this dynamic with historical data
-          changeType="negative"
+          change={threatData?.trend || "0%"}
+          changeType={
+            threatData?.trend?.startsWith("+") ? "negative" : "positive"
+          }
           description="Risk score > 40"
           className="border-destructive/20"
         />
+
         <StatCard
           title="Threats Detected"
-          value={totalThreats.toString()}
+          value={totalThreats !== null ? totalThreats.toString() : "Loading..."}
           icon={Shield}
-          change="+8%" // You can make this dynamic with historical data
-          changeType="negative"
+          change={threatData?.trend || "0%"}
+          changeType={
+            threatData?.trend?.startsWith("+") ? "negative" : "positive"
+          }
           description="Last 24 hours"
         />
       </div>
 
-      {/* Rest of your dashboard components remain the same */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Risk Distribution */}
         <Card className="lg:col-span-1 border-border/50 bg-card/50 backdrop-blur-sm">
@@ -205,44 +246,40 @@ export function DashboardTab() {
         {/* Recent High-Risk Alerts */}
         <Card className="lg:col-span-2 border-border/50 bg-card/50 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <AlertTriangle className="h-5 w-5" />
-              <span>Recent High-Risk Alerts</span>
-            </CardTitle>
+            <CardTitle>Recent High-Risk Alerts</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="flex justify-center items-center h-40">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : error ? (
-              <div className="text-center py-6 text-destructive">
-                <AlertTriangle className="h-10 w-10 mx-auto mb-2" />
-                <p>{error}</p>
-              </div>
-            ) : recentAlerts.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Shield className="h-10 w-10 mx-auto mb-2" />
-                <p>No recent alerts found</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentAlerts.map((alert) => (
-                  <div key={alert.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-background/30">
+            <div className="max-h-64 overflow-y-auto space-y-3 pr-2">
+              {recentAlerts
+                .filter((alert) => alert.score >= 25)
+                .sort((a, b) => b.score - a.score)
+                .map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="flex items-center justify-between p-3 border border-border rounded-lg bg-background/30"
+                  >
                     <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        alert.score >= 40 ? 'bg-risk-high' : 
-                        alert.score >= 25 ? 'bg-risk-medium' : 'bg-risk-low'
-                      }`} />
-                      <div>
-                        <p className="font-medium text-sm">{alert.name}</p>
-                      </div>
+                      <div
+                        className={`w-3 h-3 rounded-full ${
+                          alert.score >= 40
+                            ? "bg-risk-high"
+                            : alert.score >= 25
+                            ? "bg-risk-medium"
+                            : "bg-risk-low"
+                        }`}
+                      />
+                      <p className="font-medium text-sm">{alert.name}</p>
                     </div>
                     <div className="text-right">
-                      <Badge variant={
-                        alert.score >= 40 ? "destructive" : 
-                        alert.score >= 25 ? "default" : "secondary"
-                      }>
+                      <Badge
+                        variant={
+                          alert.score >= 40
+                            ? "destructive"
+                            : alert.score >= 25
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
                         Risk: {alert.score}
                       </Badge>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -251,8 +288,7 @@ export function DashboardTab() {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -279,20 +315,26 @@ export function DashboardTab() {
             ) : (
               <div className="space-y-4">
                 {topThreats.map((threat, index) => (
-                  <div key={threat.id} className="flex items-center justify-between">
+                  <div
+                    key={threat.id}
+                    className="flex items-center justify-between"
+                  >
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
                         {index + 1}
                       </div>
-                      <span className="font-medium">{threat.name}</span>
+                      <span className="font-medium">{threat.threatType}</span>
                     </div>
                     <div className="text-right">
                       <span className="font-bold">{threat.count}</span>
-                      <Badge 
+                      <Badge
                         variant={
-                          threat.trend.startsWith('+') ? "destructive" : 
-                          threat.trend.startsWith('-') ? "secondary" : "default"
-                        } 
+                          threat.trend.startsWith("+")
+                            ? "destructive"
+                            : threat.trend.startsWith("-")
+                            ? "secondary"
+                            : "default"
+                        }
                         className="ml-2 text-xs"
                       >
                         {threat.trend}
@@ -304,7 +346,7 @@ export function DashboardTab() {
             )}
           </CardContent>
         </Card>
-        
+
         {/* Model Performance Trends */}
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
           <CardHeader>
@@ -330,7 +372,7 @@ export function DashboardTab() {
             </div>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm">Detection Speed</span>
+                <span className="text-sm">Detection </span>
                 <span className="text-sm font-medium">98.7%</span>
               </div>
               <Progress value={98.7} className="h-2" />

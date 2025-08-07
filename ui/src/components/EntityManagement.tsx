@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   Search, 
-  Filter, 
   Users, 
   Monitor, 
   Server,
@@ -20,13 +19,12 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import axios from "axios";
-import { useEffect } from "react";
 
 interface Entity {
   id: string;
   name: string;
   type: "user" | "device" | "server";
-  riskScore: number; // Changed from 'score' to match backend
+  riskScore: number;
   department: string;
   location: string;
   role: string;
@@ -45,7 +43,7 @@ export function EntityManagement() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedRiskLevel, setSelectedRiskLevel] = useState<string>("all");
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // Control dialog visibility
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const filteredEntities = entities.filter((entity) => {
     const matchesSearch =
@@ -92,7 +90,6 @@ export function EntityManagement() {
     }
   };
 
-  // Updated to use valid Tailwind classes
   const getStatusColor = (status: string) => {
     switch (status) {
       case "online": return "bg-green-500";
@@ -102,7 +99,6 @@ export function EntityManagement() {
     }
   };
 
-  // Format last active date
   const formatLastActive = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -113,51 +109,45 @@ export function EntityManagement() {
     });
   };
 
-// Add this mapping function
-const mapEntity = (data: any): Entity => ({
-  id: String(data.id),
-  name: data.name || 'Unknown',
-  type: data.type || 'user',
-  riskScore: data.score || 0,  // Map 'score' to 'riskScore'
-  department: data.department || 'Unknown',
-  location: data.location || 'Unknown',
-  role: data.role || 'Unknown',
-  lastActive: data.lastActive || new Date().toISOString(),
-  rulesTriggered: data.rulesTriggered || [],
-  trend: data.trend || 'stable',
-  status: data.status || 'online'
-});
+  const mapEntity = (data: any): Entity => ({
+    id: String(data.id),
+    name: data.name || 'Unknown',
+    type: data.type || 'user',
+    riskScore: data.score || 0,
+    department: data.department || 'Unknown',
+    location: data.location || 'Unknown',
+    role: data.role || 'Unknown',
+    lastActive: data.lastActive || new Date().toISOString(),
+    rulesTriggered: data.rulesTriggered || [],
+    trend: data.trend || 'stable',
+    status: data.status || 'online'
+  });
 
-// Update the useEffect to use the mapper
-useEffect(() => {
-  console.log("Fetching entities...");
-  axios.get("http://127.0.0.1:8000/entities")
-    .then((res) => {
-      let rawData = res.data;
-      let entitiesData: Entity[] = [];
-      
-      if (Array.isArray(rawData)) {
-        entitiesData = rawData.map(mapEntity);
-      } else if (Array.isArray(rawData?.entities)) {
-        entitiesData = rawData.entities.map(mapEntity);
-      } else if (typeof rawData === 'object' && rawData !== null) {
-        entitiesData = [mapEntity(rawData)];
-      } else {
-        console.error("Unexpected response format:", rawData);
-        throw new Error("Unexpected response format from server");
-      }
+  useEffect(() => {
+    axios.get("http://127.0.0.1:8000/entities")
+      .then((res) => {
+        let rawData = res.data;
+        let entitiesData: Entity[] = [];
+        
+        if (Array.isArray(rawData)) {
+          entitiesData = rawData.map(mapEntity);
+        } else if (Array.isArray(rawData?.entities)) {
+          entitiesData = rawData.entities.map(mapEntity);
+        } else if (typeof rawData === 'object' && rawData !== null) {
+          entitiesData = [mapEntity(rawData)];
+        } else {
+          throw new Error("Unexpected response format");
+        }
 
-      console.log("Mapped entities data:", entitiesData);
-      setEntities(entitiesData);
-      setLoading(false);
-    })
-    .catch((err) => {
-      console.error("Error fetching entities:", err);
-      setError("Failed to load entities. Please try again later.");
-      setLoading(false);
-      setEntities([]);
-    });
-}, []);
+        setEntities(entitiesData);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError("Failed to load entities. Please try again later.");
+        setLoading(false);
+        setEntities([]);
+      });
+  }, []);
 
   const handleEntityClick = (entity: Entity) => {
     setSelectedEntity(entity);
@@ -196,7 +186,7 @@ useEffect(() => {
       {/* Filters */}
       <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
         <CardContent className="p-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Search</label>
               <div className="relative">
@@ -254,14 +244,6 @@ useEffect(() => {
                   <SelectItem value="low">Low Risk (&lt;25)</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Actions</label>
-              <Button variant="outline" className="w-full">
-                <Filter className="h-4 w-4 mr-2" />
-                Advanced
-              </Button>
             </div>
           </div>
         </CardContent>
@@ -421,21 +403,6 @@ useEffect(() => {
                                 </CardContent>
                               </Card>
                             </div>
-
-                            {/* Behavior Chart */}
-                            <Card>
-                              <CardHeader>
-                                <CardTitle className="flex items-center space-x-2">
-                                  <Activity className="h-5 w-5" />
-                                  <span>Behavior Trend (Last 7 Days)</span>
-                                </CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="h-32 bg-muted/20 rounded-lg flex items-center justify-center">
-                                  <span className="text-muted-foreground">Risk Score Timeline Chart</span>
-                                </div>
-                              </CardContent>
-                            </Card>
 
                             {/* Recent Activity */}
                             <Card>

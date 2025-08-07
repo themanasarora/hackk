@@ -4,6 +4,7 @@ import { DashboardTab } from "@/components/DashboardTab";
 import { EntityManagement } from "@/components/EntityManagement";
 import { RiskRulesEngine } from "@/components/RiskRulesEngine";
 import { AlertsThreats } from "@/components/AlertsThreats";
+import ConfigurationPage from "@/components/configration";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -19,9 +20,8 @@ const Index = () => {
       case "alerts":
         return <AlertsThreats />;
       case "config":
-        return <div className="p-8 text-center text-muted-foreground">Configuration panel coming soon...</div>;
-      case "insights":
-        return <div className="p-8 text-center text-muted-foreground">AI Insights panel coming soon...</div>;
+        return <ConfigurationPage/>;
+      
       default:
         return <DashboardTab />;
     }
